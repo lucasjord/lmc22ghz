@@ -1,0 +1,174 @@
+task 'fitld'
+default
+datain 'MYAREA:V490B.LINE.FITS
+outname 'v490b_maser' ; outclass 'uvdata' ; outseq 0 ; outdisk 1
+douvcomp 1
+digicor -1
+go ; wait
+
+task 'uvflg'
+default
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+intext 'MYAREA:v490bho.uvflg
+go ; wait
+intext 'MYAREA:v490bcd.uvflg
+go ; wait
+intext 'MYAREA:v490b_atca.flag
+go ; wait
+intext 'MYAREA:v490b_parkes.flag
+go ; wait
+intext 'MYAREA:v490b_mopra.flag
+go ; wait
+
+restore 0
+run newparms
+run VLBAUTIL
+tecrfile 'MYAREA:JPLG3280.13I'
+nfiles 3
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+VLBATECR
+
+task 'clcor'
+default
+gainver 0
+gainuse 0
+opcode 'antp'
+sources 'N180' '
+clcorprm 0,0,0,0,-0.57,-0.53,0 
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+go ; wait
+
+task 'clcor'
+default
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+gainver 0
+gainuse 0
+opcode 'eops'
+infile 'MYAREA:USNO_FINALS.ERP'
+go ; wait 
+
+***Add parallactic angle corrections to the data
+task 'clcor'
+default
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+gainver 0
+gainuse 0
+opcode 'pang'
+clcorprm 1 0
+go ; wait 
+
+task 'setjy'
+default
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+source 'IRAS00430-73' 'N66_SC12' 'IRAS01126-73' 'IRASF04521-6' 'NGC1984' '
+aparm 0
+optype 'vcal'
+restfreq 2.223e10 5.08e6
+veltyp 'helio'
+veldef 'radio'
+go ; wait
+source 'N113_MC24' 'N180' 'N157A_MC74' 'N160A_MC76' 'N214B' '
+go ; wait
+source 'HII_1107' 'HII_1186' 'IRAS05202_66' 'N105A_MC23' 'N159' '
+go ; wait
+
+task 'cvel'
+default
+inname 'v490b_maser' ; inclass 'uvdata' ; inseq 0 ; indisk 1
+outclass 'cvel' ; outdisk 1
+freqid 1
+flagver 1
+doband -1
+gainuse 0
+aparm(10) 1
+go ; wait
+
+task 'accor'
+default
+inname 'v490b_maser' ; inclass 'cvel' ; inseq 0 ; indisk 1
+timer 0
+solint 0
+go ; wait
+
+task 'clcal'
+default
+inname 'v490b_maser' ; inclass 'cvel' ; inseq 0 ; indisk 1
+gainver 5
+gainuse 6
+snver 1
+go ; wait
+
+task 'clcor'
+default
+inname 'v490b_maser' ; inclass 'cvel' ; inseq 0 ; indisk 1
+gainver 6
+gainuse 6
+opcode 'gain'
+* ATCA SEFD ~110 Jy
+anten 1 0
+stokes 'r'
+clcorprm 10.49 0
+go ; wait 
+stokes 'l'
+clcorprm 10.490 0
+go ; wait 
+* Ceduna SEFD ~2000 Jy
+anten 2 0
+stokes 'r'
+clcorprm 44.72 0
+go ; wait 
+stokes 'l'
+clcorprm 44.72 0
+go ; wait 
+* Hart SEFD ~1500 Jy (according to http://www.hartrao.ac.za/factsfile.html)
+anten 3 0
+stokes 'r'
+clcorprm 38.73 0
+go ; wait 
+stokes 'l'
+clcorprm 38.73 0
+go ; wait 
+* Hobart SEFD ~ 2000 Jy 
+anten 4 0
+stokes 'r'
+clcorprm 44.72 0
+go ; wait 
+stokes 'l'
+clcorprm 44.72 0
+go ; wait 
+* Mopra SEFD ~900 Jy
+anten 5 0
+stokes 'r'
+clcorprm 30.0 0
+go ; wait 
+stokes 'l'
+clcorprm 30.0 0
+go ; wait 
+* Parkes SEFD ~ 200 Jy
+anten 6 0
+stokes 'r'
+clcorprm 14.14 0
+go ; wait
+stokes 'l'
+clcorprm 14.14 0
+go ; wait 
+
+task 'fring'
+default
+inname 'v490b_maser' ; inclass 'cvel' ; inseq 0 ; indisk 1
+calsour '0601-706' '
+bchan 200
+echan 1920
+flagver 1
+docalib 1
+gainuse 6
+timer 0
+solint 10
+aparm 0
+refant 0
+dparm 0
+dparm(2) 200
+dparm(8) 1
+snver 0
+go ; wait
+
