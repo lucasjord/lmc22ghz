@@ -191,6 +191,50 @@ def runapcal_lba(indata, snver, inver, outver):
 # Velocity corrections
 ##############################################################################
 
+def get_center_freq(indata):
+    fq = indata.table('AIPS FQ',0)
+    naxis = indata.header['naxis']
+    if naxis[3]>1:
+        fq_span=fq[0]['if_freq'][indata.header.naxis[3]-1]-fq[0]['if_freq'][0]
+        frq=(indata.header.crval[2]+0.5*fq_span)
+    else:
+        frq=indata.header.crval[2]
+    return frq
+
+def get_line_name(indata):
+    freq = get_center_freq(indata)/1e9
+    if freq>12 and freq<13:
+        restfreq = [1.2178E+10,597000]
+        linename='CH3OH_12GHz'
+        print 'Assuming 12.2 GHz methanol maser.'
+    elif freq>22 and freq<23:
+        restfreq = [2.2235E+10,80000]
+        linename='H2O'
+        print 'Assuming 22.2 GHz water maser.'
+    elif freq>6 and freq<7:
+        restfreq = [6.668e+09, 519200]
+        linename='CH3OH_6.7GHz'
+        print 'Assuming 6.7 GHz methanol maser.'
+    elif freq>43.1 and freq<43.2:
+        restfreq = [43.122e+09,80000]
+        linename='SiO_43.1GHz'
+        print 'Assuming 43.122 GHz SiO maser.'
+    else:
+        print 'Unknown maser line.'
+        exit()
+    return (linename, restfreq)
+
+def findcal(indata, calsource):
+    if calsource == '':
+        n = 0
+        for source in indata.sources:
+            if source[0]=='G':
+                calsource=source
+                n=n+1
+        if n>1:
+            print 'More than one Maser source! Using '+calsource
+    return calsource
+
 def run_setjy(indata, source, flux):
     setjy = AIPSTask('SETJY')
     setjy.indata = indata
@@ -213,7 +257,8 @@ def findcvelsource(indata, cvelsource):
                 n=n+1
     return cvelsource
 
-def runcvel(indata, cvelsource, vel, inter_flag, doband, bpver):
+def runcvel_lba(indata, cvelsource, inter_flag, doband, bpver):
+    #uvsort(indata)
     print 'Running CVEL.'
     if inter_flag==1:
         cvelsource=check_calsource(indata, cvelsource)
@@ -221,26 +266,20 @@ def runcvel(indata, cvelsource, vel, inter_flag, doband, bpver):
     naxis = indata.header['naxis']
     crpix = indata.header['crpix']
 
-    if isinstance(vel, float) or isinstance(vel, int):
-        vel = [vel]
-
-    if naxis[3]!=len(vel):
-        print 'You have '+str(naxis[3])+' IFs, and '+str(len(vel))+' velocities.'
-        sys.exit()
     (linename,restfreq) = get_line_name(indata)
 
     setjy = AIPSTask('SETJY')
     setjy.indata = indata
     setjy.source[1:] = cvelsource
     setjy.restfreq[1:] = restfreq
-    setjy.optype = ''
+    setjy.optype = 'VCAL'
     setjy.veltyp = 'LSR'
     setjy.veldef = 'RADIO'
     channum = indata.header['naxis'][2]
     setjy.aparm[1:] = [channum/2.+crpix[2],0]
 
     for i in range(naxis[3]):
-        setjy.sysvel     = vel[i]
+        #setjy.sysvel     = vel[i]
         setjy.bif = i+1
         setjy.eif = i+1
         setjy()
@@ -256,6 +295,7 @@ def runcvel(indata, cvelsource, vel, inter_flag, doband, bpver):
     cvel.outdisk = cvel.indisk
     cvel.doband  = doband
     cvel.bpver   = bpver
+    cvel.aparm[10] = 1 # "trust cvel"
 
     cveldata = AIPSUVData(cvel.inna, cvel.incl, int(cvel.indisk), 2)
     if cveldata.exists():
@@ -263,6 +303,7 @@ def runcvel(indata, cvelsource, vel, inter_flag, doband, bpver):
         cveldata.zap()
     cvel()
 
+    #uvsort(cveldata)
     indxr = AIPSTask('indxr')
     indxr.indata = cveldata
     indxr()
@@ -400,4 +441,15 @@ def shift_pos(indata, source, ra, dec, inver, outver):
 
 ##############################################################################
 
+def runclcal(indata,snver,gainver,gainuse,interpol,dobtween,refant):
+    clcal          = AIPSTask('CLCAL')
+    clcal.indata   = indata
+    clcal.refant   = refant
+    clcal.snver    = snver
+    clcal.inver    = 0
+    clcal.gainver  = gainver
+    clcal.gainuse  = gainuse
+    clcal.interpol = interpol
+    clcal.dobtween = dobtween
+    clcal()
 
